@@ -20,7 +20,7 @@ La app responde una pregunta de diseño:
 
 ## ¿Qué hace?
 
-**Calcula el perfil de concentración de carbono C(x,t), la profundidad a la que la concentración llega a un
+Calcula el perfil de concentración de carbono C(x,t), la profundidad a la que la concentración llega a un
 valor objetivo, el tiempo o la temperatura necesarios, y la comparación de hasta tres tratamientos.
 La profundidad que reporta es la profundidad a una concentración objetivo de carbono.
 
