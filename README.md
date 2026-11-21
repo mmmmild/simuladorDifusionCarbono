@@ -18,13 +18,28 @@ La app responde una pregunta de diseño:
 > ¿Qué combinación de temperatura y tiempo necesito para alcanzar una concentración de carbono
 > determinada a una profundidad específica?
 
-## Qué hace y qué no hace
+## ¿Qué hace?
 
-**Sí calcula:** el perfil de concentración de carbono C(x,t), la profundidad a la que la concentración llega a un
+Calcula el perfil de concentración de carbono C(x,t), la profundidad a la que la concentración llega a un
 valor objetivo, el tiempo o la temperatura necesarios, y la comparación de hasta tres tratamientos.
+La profundidad que reporta es la profundidad a una concentración objetivo de carbono.
 
-**No calcula:** dureza, temple, revenido ni *profundidad efectiva de endurecimiento*. La profundidad que
-reporta es la profundidad a una concentración objetivo de carbono, no una propiedad mecánica.
+## ¿Para qué sirve?
+
+- **Diseñar un tratamiento de cementación.** Si sabes qué concentración de carbono necesitas y a qué
+  profundidad, la app te da las combinaciones de temperatura y tiempo que lo logran. Así puedes elegir,
+  por ejemplo, una temperatura más alta para acortar el tiempo de horno.
+- **Entender el efecto de cada variable.** Muestra cómo cambia el perfil de carbono al mover la temperatura,
+  el tiempo o las concentraciones. Por ejemplo, duplicar el tiempo no duplica la profundidad: la aumenta
+  √2 veces (unas 1.41 veces).
+- **Comparar opciones antes de probarlas.** Pone hasta tres tratamientos lado a lado para ver cuál llega
+  más profundo y cuánto tiempo necesitaría cada uno para igualar a otro.
+- **Aprender difusión con números.** Conecta la teoría (leyes de Fick y Arrhenius) con resultados que se
+  pueden comprobar a mano.
+
+Es una herramienta de cálculo y de aprendizaje. Sirve para estimar y comparar condiciones de proceso: no 
+calcula dureza, temple ni profundidad efectiva de endurecimiento, y
+supone condiciones ideales (ver Módulo 5).
 
 ## Módulos
 

@@ -20,7 +20,7 @@ INTEGRANTES = (
 
 # ---------- Límites de la interfaz ----------
 T_MIN = 900.0             # [°C] intervalo de demostración del proyecto (900–1050 °C)
-T_MAX = 1050.0            # [°C]
+T_MAX = 1100.0            # [°C]
 SOLUBILIDAD_MAX = 2.11    # [wt %] máxima solubilidad del C en austenita según el diagrama de clase (a 1147 °C)
 FACTOR_SEMIINFINITO = 4.0 # el sólido se considera semiinfinito si el espesor es mayor o igual que 4*L (L = raíz(D*t))
                           # (a esa profundidad erfc(2) ≈ 0.005, o sea casi no llega carbono)
