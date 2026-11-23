@@ -6,7 +6,7 @@ Todos los números de este guion salen del código con los valores por defecto d
 
 ## Antes de presentar (5 minutos)
 
-1. Abre una terminal en la carpeta del proyecto y corre `python validacion.py`. Debe terminar con `78 de 78 pruebas pasaron.`
+1. Abre una terminal en la carpeta del proyecto y corre `python validacion.py`. Debe terminar con `93 de 93 pruebas pasaron.`
 2. Arranca la app: `python -m streamlit run app.py`.
 3. Abre cada módulo una vez para que no haya sorpresas.
 4. Toma capturas de pantalla de los módulos 1, 2 y 3 como respaldo por si falla el internet o el equipo.
@@ -30,7 +30,7 @@ Todos los números de este guion salen del código con los valores por defecto d
 - Di claramente: **la app calcula concentración de carbono, no dureza ni profundidad efectiva de endurecimiento.**
 
 ### Página 1, parte de abajo: simulador (Módulo 1) (2 min)
-Baja hasta el título **Simulador** (o usa el enlace "Ir directo al simulador").
+Baja hasta el título **Simulador**.
 Valores por defecto: 927 °C, 10 h, C₀ = 0.20, Cs = 1.00, Cobj = 0.40.
 - Resultado esperado: **D = 8.326 × 10⁻¹² m²/s**, **L = 0.547 mm**, profundidad para Cobj = **0.891 mm**.
 - Señala en la gráfica: Cs en la superficie, C₀ lejos, y la línea de Cobj que cruza el perfil en x ≈ 0.89 mm.
@@ -62,10 +62,18 @@ Valores por defecto: A = 900 °C / 12 h, B = 950 °C / 6 h, C = 1000 °C / 3 h.
 - Aclara el punto científico: **el carbono difunde más rápido en ferrita (BCC) que en austenita (FCC).** Se modela en austenita porque es la fase estable a esa temperatura, disuelve mucho más carbono (2.11 wt % contra 0.02 wt %) y se transforma en martensita al templar.
 
 ### Módulo 5 (2 min)
-- Muestra el contador: **78 de 78 pruebas pasan**.
+- Muestra el contador: **93 de 93 pruebas pasan**.
 - Caso E: el libro (Callister, problema 5.13) da 31.39 h; el modelo da 31.13 h (−0.8 %). Con R = 8.31, la del libro, da 31.35 h (−0.1 %). La diferencia viene de R, no de un error.
 - Muestra la tabla de procedencia: diapositivas / elegido por el equipo / demostración / calculado.
 - Cierra con los supuestos y con "Modelo contra acero real".
+
+### Módulo 6. Microestructura, flujo e industria (opcional, 2 min)
+Valores por defecto: 927 °C, 10 h, C₀ = 0.20, Cs = 1.00.
+- Corte de la pieza: la superficie es hipereutectoide hasta donde el carbono baja a 0.8 wt %, a **0.247 mm**.
+- Mueve el control de profundidad y muestra cómo cambia la dona: perlita + cementita cerca de la superficie, perlita + ferrita más adentro.
+- Flujo: al final entran **1.94 g/(m²·h)** y en total entraron **38.9 g/m²**. El flujo a las 2.5 h es el doble que a las 10 h (baja como 1/√t).
+- Aclara: la microestructura es para enfriamiento lento; al templar se forma martensita y eso no se calcula.
+- Cierra con la sección de industria: superficie dura + núcleo tenaz, y qué pasa si la capa sale mal.
 
 ## Preguntas que pueden hacer y cómo contestar
 
@@ -104,6 +112,12 @@ Que D dependa de la concentración y de los aleantes, el calentamiento y el enfr
 
 **12. ¿Por qué usan Arrhenius?**
 Porque la difusión es un proceso activado térmicamente: la fracción de saltos atómicos que vencen la barrera Q crece como exp(−Q/RT). Al graficar ln D contra 1/T sale una recta de pendiente −Q/R.
+
+**13. ¿La microestructura del Módulo 6 es la que tendría la pieza real?**
+Solo si se enfriara lento (equilibrio). Es la regla de la palanca con los valores del diagrama de clase aplicada al perfil de carbono. En la práctica la pieza se templa y se forma martensita, que no se calcula.
+
+**14. ¿De dónde sale el flujo?**
+De la primera ley de Fick aplicada a la solución erfc: J = −D ∂C/∂x. En la superficie queda J = (Cs − C₀)√(D/(πt)), que baja como 1/√t. Para pasarlo a gramos se usa la densidad del hierro (7870 kg/m³), que es una aproximación. Se validó contra la derivada numérica del perfil.
 
 ## Si algo falla durante la demostración
 

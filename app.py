@@ -14,6 +14,7 @@ from modulos import (
     m3_comparacion,
     m4_teoria,
     m5_validacion,
+    m6_microestructura,
 )
 
 # Nombre que se ve en la barra lateral  ->  función que dibuja la página
@@ -23,6 +24,7 @@ PAGINAS = {
     estilo.PAGINA_COMPARACION: m3_comparacion.mostrar,
     estilo.PAGINA_TEORIA: m4_teoria.mostrar,
     estilo.PAGINA_VALIDACION: m5_validacion.mostrar,
+    estilo.PAGINA_MICROESTRUCTURA: m6_microestructura.mostrar,
 }
 
 

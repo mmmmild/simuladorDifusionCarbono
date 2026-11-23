@@ -20,7 +20,7 @@ INTEGRANTES = (
 
 # ---------- Límites de la interfaz ----------
 T_MIN = 900.0             # [°C] intervalo de demostración del proyecto (900–1050 °C)
-T_MAX = 1100.0            # [°C]
+T_MAX = 1050.0            # [°C]
 SOLUBILIDAD_MAX = 2.11    # [wt %] máxima solubilidad del C en austenita según el diagrama de clase (a 1147 °C)
 FACTOR_SEMIINFINITO = 4.0 # el sólido se considera semiinfinito si el espesor es mayor o igual que 4*L (L = raíz(D*t))
                           # (a esa profundidad erfc(2) ≈ 0.005, o sea casi no llega carbono)
@@ -32,6 +32,7 @@ PAGINA_INVERSO = "2. Diseño inverso"
 PAGINA_COMPARACION = "3. Comparación de tratamientos"
 PAGINA_TEORIA = "4. Fundamento teórico"
 PAGINA_VALIDACION = "5. Validación y limitaciones"
+PAGINA_MICROESTRUCTURA = "6. Microestructura, flujo e industria"
 
 # ---------- Llaves de st.session_state ----------
 ESTADO_PAGINA = "pagina"            # página que está seleccionada en la barra lateral
@@ -45,6 +46,10 @@ COLOR_COBJ = "#1C7ED6"    # azul
 COLOR_X = "#2F9E44"       # verde
 COLOR_TEXTO = "#1B2430"   # azul muy oscuro, para texto y líneas sobre fondo blanco
 COLORES_TRATAMIENTOS = ["#E8590C", "#1C7ED6", "#2F9E44"]  # tratamientos A, B y C (Módulo 3)
+# Microconstituyentes (Módulo 6)
+COLOR_FERRITA = "#74C0FC"    # azul claro
+COLOR_PERLITA = "#F59F00"    # ámbar
+COLOR_CEMENTITA = "#862E9C"  # morado
 
 # ---------- Formato común de todas las gráficas de Plotly ----------
 # Se usa así:  fig.update_layout(**LAYOUT_BASE, xaxis_title="...", height=480)

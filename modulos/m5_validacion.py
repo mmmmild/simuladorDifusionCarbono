@@ -98,6 +98,8 @@ def mostrar():
 | Consist. | Ida y vuelta entre funciones, condiciones de frontera, D·t constante | Propiedades matemáticas que deben cumplirse |
 | Diseño inv. | Curva y tabla del diseño inverso | Propiedades matemáticas que deben cumplirse |
 | Fases | Avisos de A3 y Acm | Puntos del diagrama de clase |
+| Microestr. | Regla de la palanca (Módulo 6) | Cálculos a mano con el diagrama de clase |
+| Flujo | Flujo y carbono absorbido (Módulo 6) | Derivada e integral numéricas del perfil y cálculo a mano |
 | Errores | El modelo avisa cuando los datos no tienen sentido | Debe lanzar un error |
         """
     )

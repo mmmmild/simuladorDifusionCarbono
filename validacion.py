@@ -29,6 +29,10 @@ from modelo import (
     calcular_temperatura_austenita_minima,
     verificar_austenita,
     comparar_tratamientos,
+    calcular_microconstituyentes,
+    calcular_flujo,
+    calcular_carbono_absorbido,
+    DENSIDAD_ACERO,
 )
 
 C0 = 0.20   # [wt %]  valor de demostración
@@ -271,6 +275,53 @@ def ejecutar_validacion():
     filas.append(_debe_ser_cierto("Fases", "C0 = 0.02 a 850 °C avisa (debajo de A3)", len(verificar_austenita(850, 0.02, CS)) == 1))
     filas.append(_debe_ser_cierto("Fases", "T fuera del diagrama (600 °C) avisa una sola vez", len(verificar_austenita(600, C0, CS)) == 1))
 
+    # ---- Microestructura en enfriamiento lento (regla de la palanca, valores del diagrama de clase) ----
+    # Cálculos a mano: perlita(0.30) = (0.30-0.02)/(0.8-0.02) = 0.3590; cementita(1.00) = (1.00-0.8)/(6.67-0.8) = 0.0341;
+    # cementita(2.11) = (2.11-0.8)/(6.67-0.8) = 0.2232
+    filas.append(_comparar("Microestr.", "perlita con 0.30 wt % (ejercicio de clase)", 0.3590, calcular_microconstituyentes(0.30)["perlita"], 1e-4))
+    filas.append(_comparar("Microestr.", "perlita con 0.80 wt % (eutectoide)", 1.0, calcular_microconstituyentes(0.80)["perlita"], 1e-12))
+    filas.append(_comparar("Microestr.", "ferrita con 0.02 wt %", 1.0, calcular_microconstituyentes(0.02)["ferrita"], 1e-12))
+    filas.append(_comparar("Microestr.", "cementita proeut. con 1.00 wt %", 0.0341, calcular_microconstituyentes(1.00)["cementita"], 1e-4))
+    filas.append(_comparar("Microestr.", "cementita proeut. con 2.11 wt %", 0.2232, calcular_microconstituyentes(2.11)["cementita"], 1e-4))
+    C_prueba = np.linspace(0.0, 2.11, 300)
+    fr = calcular_microconstituyentes(C_prueba)
+    suma = fr["ferrita"] + fr["perlita"] + fr["cementita"]
+    filas.append(_comparar("Microestr.", "ferrita + perlita + cementita = 1", 0.0, float(np.max(np.abs(suma - 1.0))), 1e-12))
+    izq = calcular_microconstituyentes(0.8 - 1e-9)["perlita"]
+    der = calcular_microconstituyentes(0.8 + 1e-9)["perlita"]
+    filas.append(_comparar("Microestr.", "perlita continua en 0.8 wt %", 0.0, abs(izq - der), 1e-6))
+
+    # ---- Flujo de carbono y carbono absorbido (927 °C, 10 h, valores de demostración) ----
+    # 1) J = -D dC/dx: se compara con la derivada numérica del perfil (diferencias centradas)
+    D927 = float(calcular_difusividad(927))                       # [m²/s]
+    h = 1e-4                                                      # [mm] paso de la derivada
+    for x_mm in (0.0, 0.5):
+        if x_mm == 0.0:   # en la superficie se usa diferencia hacia adelante de 2o orden
+            c0_, c1_, c2_ = calcular_perfil(np.array([0.0, h, 2 * h]), 10, C0, CS, 927)
+            dCdx = (-3 * c0_ + 4 * c1_ - c2_) / (2 * h * 1e-3)    # [wt %/m]
+        else:
+            ca, cb = calcular_perfil(np.array([x_mm - h, x_mm + h]), 10, C0, CS, 927)
+            dCdx = (cb - ca) / (2 * h * 1e-3)                     # [wt %/m]
+        J_num = -D927 * dCdx / 100.0 * DENSIDAD_ACERO             # [kg/(m²·s)]
+        filas.append(_comparar("Flujo", f"J en x = {x_mm} mm vs -D·dC/dx [kg/(m²·s)]", J_num,
+                               float(calcular_flujo(x_mm, 10, C0, CS, 927)), 1e-4, relativa=True))
+    # 2) El flujo en la superficie baja como 1/raíz(t): con 4 veces el tiempo, la mitad
+    filas.append(_comparar("Flujo", "J(0, 40 h) / J(0, 10 h) = 1/2", 0.5,
+                           float(calcular_flujo(0, 40, C0, CS, 927) / calcular_flujo(0, 10, C0, CS, 927)), 1e-12))
+    # 3) Carbono absorbido = área entre el perfil y C0 (integral numérica)
+    x_int = np.linspace(0.0, 20.0, 20001)                         # [mm]
+    area = np.trapezoid(calcular_perfil(x_int, 10, C0, CS, 927) - C0, x_int * 1e-3) if hasattr(np, "trapezoid") \
+        else np.trapz(calcular_perfil(x_int, 10, C0, CS, 927) - C0, x_int * 1e-3)
+    M_num = area / 100.0 * DENSIDAD_ACERO                         # [kg/m²]
+    filas.append(_comparar("Flujo", "M = área bajo el perfil [kg/m²]", M_num,
+                           float(calcular_carbono_absorbido(10, C0, CS, 927)), 1e-6, relativa=True))
+    # 4) Cálculo a mano con D = 8.33e-12 m²/s (Caso A):
+    #    M = 2 * (0.80/100 * 7870) * raíz(8.33e-12 * 36000 / pi) = 0.03890 kg/m² = 38.90 g/m²
+    filas.append(_comparar("Flujo", "M a 927 °C, 10 h [g/m²] (a mano)", 38.90,
+                           float(calcular_carbono_absorbido(10, C0, CS, 927)) * 1000.0, 0.1))
+    filas.append(_comparar("Flujo", "M(40 h) / M(10 h) = 2 (crece con raíz(t))", 2.0,
+                           float(calcular_carbono_absorbido(40, C0, CS, 927) / calcular_carbono_absorbido(10, C0, CS, 927)), 1e-12))
+
     # ---- Errores: el modelo tiene que avisar cuando los datos no tienen sentido ----
     filas.append(_debe_dar_error("Errores", "Cobj >= Cs", calcular_profundidad, 10, C0, CS, 1.20, 927))
     filas.append(_debe_dar_error("Errores", "Cobj <= C0", calcular_profundidad, 10, C0, CS, 0.10, 927))
@@ -284,6 +335,8 @@ def ejecutar_validacion():
     filas.append(_debe_dar_error("Errores", "diseño inverso: T mínima >= T máxima", calcular_diseno_inverso, 0.80, 0.05, C0, CS, 0.40, 1050.0, 900.0))
     filas.append(_debe_dar_error("Errores", "diseño inverso: paso <= 0", calcular_diseno_inverso, 0.80, 0.05, C0, CS, 0.40, 900.0, 1050.0, 0.0))
     filas.append(_debe_dar_error("Errores", "diseño inverso: Cobj >= Cs", calcular_diseno_inverso, 0.80, 0.05, C0, CS, 1.20, 900.0, 1050.0))
+    filas.append(_debe_dar_error("Errores", "microestructura: C > 6.67 wt %", calcular_microconstituyentes, 7.0))
+    filas.append(_debe_dar_error("Errores", "flujo: tiempo <= 0", calcular_flujo, 0.0, 0.0, C0, CS, 927))
 
     return filas
 

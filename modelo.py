@@ -309,3 +309,70 @@ if __name__ == "__main__":
 
     x_obj = calcular_profundidad(10, 0.20, 1.00, 0.40, 927)
     print(f"\nProfundidad donde C = 0.40 wt %: {x_obj:.3f} [mm]")
+
+
+# ---------- Microestructura en enfriamiento lento (regla de la palanca) ----------
+# Puntos del diagrama Fe-Fe₃C de clase (rotulados en el diagrama):
+C_FERRITA_MAX = 0.02    # [wt %] máxima solubilidad del C en ferrita (a 723 °C)
+C_EUTECTOIDE = 0.8      # [wt %] eutectoide (723 °C)
+C_CEMENTITA = 6.67      # [wt %] cementita Fe₃C
+
+
+def calcular_microconstituyentes(C):
+    """Fracciones (de 0 a 1) de ferrita proeutectoide, perlita y cementita proeutectoide que tendría
+    un acero con C [wt %] si se ENFRÍA LENTO (equilibrio). Es la regla de la palanca justo debajo de 723 °C:
+      hipoeutectoide (C <= 0.8):  perlita = (C - 0.02)/(0.8 - 0.02),  el resto es ferrita proeutectoide
+      hipereutectoide (C > 0.8):  perlita = (6.67 - C)/(6.67 - 0.8),  el resto es cementita proeutectoide
+    Acepta un número o un arreglo. Regresa un diccionario con 'ferrita', 'perlita' y 'cementita'.
+    OJO: no es lo que pasa al templar (eso da martensita y no se calcula aquí)."""
+    C_arr = np.asarray(C, dtype=float)
+    if np.any(C_arr < 0) or np.any(C_arr > C_CEMENTITA):
+        raise ValueError("La concentración debe estar entre 0 y 6.67 wt % (cementita).")
+    hipo = C_arr <= C_EUTECTOIDE
+    perlita = np.where(
+        hipo,
+        np.clip((C_arr - C_FERRITA_MAX) / (C_EUTECTOIDE - C_FERRITA_MAX), 0.0, 1.0),
+        (C_CEMENTITA - C_arr) / (C_CEMENTITA - C_EUTECTOIDE),
+    )
+    ferrita = np.where(hipo, 1.0 - perlita, 0.0)
+    cementita = np.where(hipo, 0.0, 1.0 - perlita)
+    if C_arr.ndim == 0:   # si entró un número, regresa números
+        return {"ferrita": float(ferrita), "perlita": float(perlita), "cementita": float(cementita)}
+    return {"ferrita": ferrita, "perlita": perlita, "cementita": cementita}
+
+
+# ---------- Flujo de carbono (primera ley de Fick aplicada a la solución erfc) ----------
+# Para pasar de wt % a masa por volumen se usa la densidad del hierro a temperatura ambiente.
+# Es una APROXIMACIÓN: a la temperatura de cementación la densidad es un poco menor (dilatación).
+DENSIDAD_ACERO = 7870.0  # [kg/m³]  (7.87 g/cm³, densidad del hierro)
+
+
+def _wt_a_kg_m3(C_wt):
+    """Convierte una concentración (o diferencia de concentraciones) de wt % a [kg/m³]."""
+    return np.asarray(C_wt, dtype=float) / 100.0 * DENSIDAD_ACERO
+
+
+def calcular_flujo(x_mm, t_h, C0, Cs, T_C):
+    """Flujo de carbono J [kg/(m²·s)] a la profundidad x y al tiempo t.
+    Sale de derivar la solución erfc:  J = -D dC/dx = (Cs - C0) * raíz(D/(pi*t)) * exp(-x²/(4*D*t)).
+    En la superficie (x = 0) queda J = (Cs - C0) * raíz(D/(pi*t)): baja como 1/raíz(t).
+    Entradas: x_mm [mm], t_h [h], C0 y Cs [wt %], T_C [°C]."""
+    _validar_concentraciones(C0, Cs)
+    _validar_positivo(t_h, "El tiempo")
+    x_m = np.asarray(x_mm, dtype=float) * METROS_POR_MM   # [m]
+    if np.any(x_m < 0):
+        raise ValueError("La profundidad no puede ser negativa.")
+    t_s = np.asarray(t_h, dtype=float) * SEGUNDOS_POR_HORA  # [s]
+    D = calcular_difusividad(T_C)                           # [m²/s]
+    return _wt_a_kg_m3(Cs - C0) * np.sqrt(D / (np.pi * t_s)) * np.exp(-x_m ** 2 / (4.0 * D * t_s))
+
+
+def calcular_carbono_absorbido(t_h, C0, Cs, T_C):
+    """Carbono que entró por cada m² de superficie hasta el tiempo t, M [kg/m²].
+    Es el área entre el perfil y C0 (o la suma del flujo en la superficie):  M = 2 (Cs - C0) raíz(D t / pi).
+    Crece como raíz(t). Entradas: t_h [h], C0 y Cs [wt %], T_C [°C]."""
+    _validar_concentraciones(C0, Cs)
+    _validar_positivo(t_h, "El tiempo")
+    t_s = np.asarray(t_h, dtype=float) * SEGUNDOS_POR_HORA  # [s]
+    D = calcular_difusividad(T_C)                           # [m²/s]
+    return 2.0 * _wt_a_kg_m3(Cs - C0) * np.sqrt(D * t_s / np.pi)
