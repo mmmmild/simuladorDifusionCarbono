@@ -1,286 +1,160 @@
-# Simulador Difusión Carbono. Módulo 1: simulación directa.
+# Simulador Difusión Carbono. Página 2: simulación.
+# Mueves temperatura, tiempo y concentraciones; la app dibuja cómo entra el carbono en la pieza
+# (con animación), explica lo que pasa y por qué cada control tiene ese rango.
+# Los cálculos salen de modelo.py. app.py solo llama a mostrar().
 
 import numpy as np
-import plotly.graph_objects as go
 import streamlit as st
 
 from estilo import (
-    COLOR_C0, COLOR_COBJ, COLOR_CS, COLOR_PERFIL, COLOR_X,
-    ESTADO_PRECARGA, FACTOR_SEMIINFINITO, LAYOUT_BASE, SOLUBILIDAD_MAX, T_MAX, T_MIN,
+    C0_DEMO, C0_MAX, C0_MIN, COBJ_DEMO, COBJ_MAX, COBJ_MIN, CS_DEMO, CS_MAX, CS_MIN, ESTADO_PRECARGA,
+    FACTOR_SEMIINFINITO, T_DEMO, T_H_DEMO, T_H_MAX, T_H_MIN, T_MAX, T_MIN,
 )
-from modulos.inicio import mostrar_portada, mostrar_resumen_teorico
 from modelo import (
-    CERO_CELSIUS_K, D0, Q, R,
-    calcular_difusividad, calcular_longitud_difusion, calcular_perfil,
-    calcular_profundidad, calcular_z, verificar_austenita,
+    CERO_CELSIUS_K, MARGEN_ACM, calcular_difusividad, calcular_longitud_difusion, calcular_profundidad,
+    calcular_solubilidad_acm, calcular_temperatura_austenita_minima, calcular_z, verificar_austenita,
 )
+from modulos.visual import construir_animacion
 
 
 # ---------- Lógica (sin Streamlit, para poder probarla aparte) ----------
-def calcular_modulo1(T_C, t_h, C0, Cs, Cobj, x_max_mm, espesor_mm=None):
-    """Junta todo lo que necesita la pantalla del Módulo 1.
-    Regresa un diccionario. Si algo no tiene sentido físico:
-      - 'errores': no se puede calcular nada.
-      - 'avisos': se calcula, pero hay que tener cuidado."""
-    r = {
-        "errores": [], "avisos": [],
-        "D": None, "L": None, "z": None, "x_obj": None,
-        "x": None, "C": None, "espesor_minimo": None,
-    }
-
+def calcular_modulo1(T_C, t_h, C0, Cs, Cobj):
+    """Junta lo que necesita la pantalla. Regresa un diccionario con:
+      'errores' (no se puede calcular nada), 'avisos' (se calcula pero con cuidado) y los resultados."""
+    r = {"errores": [], "avisos": [], "D": None, "L": None, "z": None, "x_obj": None, "espesor_minimo": None}
     if Cs <= C0:
         r["errores"].append("Cs debe ser mayor que C₀: en cementación la superficie tiene más carbono que el núcleo.")
         return r
-
-    r["D"] = float(calcular_difusividad(T_C))            # [m²/s]
+    r["D"] = float(calcular_difusividad(T_C))             # [m²/s]
     r["L"] = float(calcular_longitud_difusion(t_h, T_C))  # [mm]
-    r["x"] = np.linspace(0.0, x_max_mm, 400)              # [mm]
-    r["C"] = calcular_perfil(r["x"], t_h, C0, Cs, T_C)    # [wt %]
-
+    r["espesor_minimo"] = FACTOR_SEMIINFINITO * r["L"]    # [mm]
     if C0 < Cobj < Cs:
         r["z"] = float(calcular_z(C0, Cs, Cobj))
         r["x_obj"] = float(calcular_profundidad(t_h, C0, Cs, Cobj, T_C))  # [mm]
-        if r["x_obj"] > x_max_mm:
-            r["avisos"].append(
-                f"La profundidad calculada ({r['x_obj']:.2f} [mm]) queda fuera de la gráfica. "
-                "Aumenta la profundidad máxima a visualizar."
-            )
     else:
-        r["avisos"].append(
-            "La concentración objetivo debe cumplir C₀ < Cobj < Cs. Con ese valor no existe una profundidad."
-        )
-
-    # Chequeo aproximado de fases (A3 y Acm del diagrama de clase): solo avisa, no frena nada
+        r["avisos"].append("La concentración objetivo debe quedar entre C₀ y Cs; con ese valor no hay profundidad.")
     r["avisos"].extend(verificar_austenita(T_C, C0, Cs))
-
-    if espesor_mm is not None:
-        r["espesor_minimo"] = FACTOR_SEMIINFINITO * r["L"]  # [mm]
-        if espesor_mm < r["espesor_minimo"]:
-            r["avisos"].append(
-                f"El espesor ({espesor_mm:.2f} [mm]) es menor que 4·L = {r['espesor_minimo']:.2f} [mm]. "
-                "El supuesto de sólido semiinfinito deja de ser razonable y el resultado pierde validez."
-            )
     return r
 
 
 def explicar_simulacion(T_C, t_h, C0, Cs, Cobj, r):
-    """Texto (markdown) que cuenta, paso a paso y con los números de la simulación, lo que sucede.
-    'r' es lo que regresa calcular_modulo1. Los números salen de modelo.py, no están escritos a mano."""
+    """Texto (markdown) que cuenta, paso a paso y con los números de la simulación, lo que sucede."""
     T_K = T_C + CERO_CELSIUS_K  # [K]
     L = r["L"]                  # [mm]
     texto = (
-        f"1. **Se calienta la pieza a {T_C:.0f} °C ({T_K:.2f} [K]).** A esa temperatura el carbono se mueve "
-        f"con un coeficiente de difusión D = {r['D']:.3e} [m²/s]. Con más temperatura, D sube muy rápido (Arrhenius).\n"
-        f"2. **La superficie se mantiene en Cs = {Cs:.2f} wt % y el interior parte de C₀ = {C0:.2f} wt %.** "
-        f"Esa diferencia empuja al carbono hacia adentro: en la gráfica, la curva empieza en Cs (en x = 0) "
-        f"y baja hacia C₀ (lejos de la superficie).\n"
-        f"3. **Pasan {t_h:g} h.** En ese tiempo el carbono recorre una distancia característica "
-        f"L = √(D·t) = {L:.3f} [mm]. La concentración cae rápido entre 0 y 2·L = {2 * L:.3f} [mm], "
-        f"y a partir de 4·L = {4 * L:.3f} [mm] ya casi es igual a C₀ (erfc(2) ≈ 0.005).\n"
+        f"1. **La pieza está a {T_C:.0f} °C ({T_K:.2f} [K]).** A esa temperatura el carbono se mueve con un "
+        f"coeficiente de difusión D = {r['D']:.3e} [m²/s].\n"
+        f"2. **La superficie se mantiene en Cs = {Cs:.2f} wt % y el interior empezó con C₀ = {C0:.2f} wt %.** "
+        f"Esa diferencia empuja al carbono hacia adentro: en el corte, la parte de arriba es la más oscura.\n"
+        f"3. **Pasan {t_h:g} h.** El carbono recorre una distancia típica L = √(D·t) = {L:.3f} [mm]. "
+        f"La concentración baja rápido en los primeros 2·L = {2 * L:.2f} [mm] y a 4·L = {4 * L:.2f} [mm] "
+        f"ya casi es C₀.\n"
     )
     if r["x_obj"] is None:
-        texto += (
-            "4. **Falta elegir una concentración objetivo válida.** Para ver la profundidad, Cobj debe estar "
-            "entre C₀ y Cs.\n"
-        )
-        return texto
-
-    x_obj = r["x_obj"]  # [mm]
+        return texto + "4. **Elige una concentración objetivo entre C₀ y Cs** para ver hasta dónde llega.\n"
+    x_obj = r["x_obj"]
     texto += (
-        f"4. **¿Hasta dónde llega Cobj = {Cobj:.2f} wt %?** Se busca el punto donde la curva baja hasta Cobj. "
-        f"Eso ocurre en x = 2·z·L = 2 × {r['z']:.4f} × {L:.3f} = **{x_obj:.3f} [mm]** "
-        f"(el punto marcado en la gráfica).\n"
-        f"5. **Qué significa y qué no.** Es la profundidad a la que el carbono alcanza la concentración que elegiste. "
-        f"No es la profundidad efectiva de endurecimiento: esa depende del temple y de la dureza.\n"
+        f"4. **Cobj = {Cobj:.2f} wt % llega hasta {x_obj:.3f} [mm]** (la línea azul punteada). "
+        f"Se calcula con x = 2·z·L = 2 × {r['z']:.4f} × {L:.3f}.\n"
+        f"5. **Para que el modelo valga**, la pieza debe medir al menos 4·L = {r['espesor_minimo']:.2f} [mm] de "
+        f"espesor (sólido semiinfinito).\n"
     )
-
-    # Dos preguntas "¿y si...?" con números del propio modelo
-    t2 = 2.0 * t_h                                          # [h]
+    t2 = min(2.0 * t_h, T_H_MAX)                              # [h]
     x_t2 = float(calcular_profundidad(t2, C0, Cs, Cobj, T_C))  # [mm]
-    T2 = T_C + 25.0 if T_C + 25.0 <= T_MAX else T_C - 25.0  # [°C] otra temperatura dentro del intervalo
+    T2 = T_C + 50.0 if T_C + 50.0 <= T_MAX else T_C - 50.0    # [°C]
     x_T2 = float(calcular_profundidad(t_h, C0, Cs, Cobj, T2))  # [mm]
     texto += (
         f"\n**Pruébalo:**\n\n"
-        f"- Si duplicas el tiempo ({t2:g} h), la profundidad **no** se duplica: crece con √t y pasa de "
-        f"{x_obj:.3f} a {x_t2:.3f} [mm] (× {x_t2 / x_obj:.2f}).\n"
-        f"- Con {T2:.0f} °C y el mismo tiempo, la profundidad pasa de {x_obj:.3f} a {x_T2:.3f} [mm]."
+        f"- Con {t2:g} h en lugar de {t_h:g} h, la profundidad pasa de {x_obj:.3f} a {x_t2:.3f} [mm] "
+        f"(× {x_t2 / x_obj:.2f}): crece con √t, no al mismo ritmo que el tiempo.\n"
+        f"- Con {T2:.0f} °C y el mismo tiempo, pasa de {x_obj:.3f} a {x_T2:.3f} [mm] "
+        f"(× {x_T2 / x_obj:.2f}): la temperatura cambia D de forma exponencial."
     )
     return texto
 
 
-def construir_figura(x, C, C0, Cs, Cobj, x_obj):
-    """Gráfica de concentración de carbono [wt %] contra profundidad [mm]."""
-    fig = go.Figure()
-
-    # Perfil de concentración
-    fig.add_trace(go.Scatter(
-        x=x, y=C, mode="lines", name="C(x, t)",
-        line=dict(color=COLOR_PERFIL, width=3),
-        hovertemplate="x = %{x:.3f} mm<br>C = %{y:.3f} wt %<extra></extra>",
-    ))
-
-    # Líneas horizontales de referencia
-    fig.add_hline(y=Cs, line_dash="dash", line_color=COLOR_CS,
-                  annotation_text=f"Cs = {Cs:.2f} wt %", annotation_position="top right")
-    fig.add_hline(y=C0, line_dash="dash", line_color=COLOR_C0,
-                  annotation_text=f"C₀ = {C0:.2f} wt %", annotation_position="bottom right")
-
-    # Concentración objetivo y la profundidad a la que se alcanza
-    if C0 < Cobj < Cs:
-        fig.add_hline(y=Cobj, line_dash="dot", line_color=COLOR_COBJ,
-                      annotation_text=f"Cobj = {Cobj:.2f} wt %", annotation_position="top right")
-        if x_obj is not None and x_obj <= x[-1]:
-            fig.add_vline(x=x_obj, line_dash="dot", line_color=COLOR_X)
-            fig.add_trace(go.Scatter(
-                x=[x_obj], y=[Cobj], mode="markers", name=f"x = {x_obj:.3f} mm para Cobj",
-                marker=dict(size=12, color=COLOR_X, line=dict(width=2, color="white")),
-                hovertemplate="x = %{x:.3f} mm<br>C = %{y:.3f} wt %<extra></extra>",
-            ))
-
-    fig.update_layout(
-        **LAYOUT_BASE,
-        xaxis_title="Profundidad [mm]",
-        yaxis_title="Concentración de carbono [wt %]",
-        xaxis_range=[0, float(x[-1])],
-        yaxis_range=[0, Cs * 1.12],
-        hovermode="x unified",
-        height=480,
-    )
-    return fig
+def tabla_rangos():
+    """Tabla (markdown) con el porqué de cada rango. Los números salen de modelo.py y estilo.py."""
+    A3_c0min = calcular_temperatura_austenita_minima(C0_MIN)      # [°C]
+    A3_demo = calcular_temperatura_austenita_minima(C0_DEMO)      # [°C]
+    acm_tmin = float(calcular_solubilidad_acm(T_MIN))              # [wt %]
+    L_min = float(calcular_longitud_difusion(T_H_MIN, T_MIN))      # [mm]
+    L_max = float(calcular_longitud_difusion(T_H_MAX, T_MAX))      # [mm]
+    return f"""
+| Control | Rango | ¿Por qué? |
+|---|---|---|
+| Temperatura | {T_MIN:.0f}–{T_MAX:.0f} °C | **Abajo:** todo el acero debe ser austenita. Con la línea A3 aproximada del diagrama de clase, un acero de {C0_MIN:.2f} wt % ya es austenita a {A3_c0min:.0f} °C y uno de {C0_DEMO:.2f} wt % a {A3_demo:.0f} °C. **Arriba:** la austenita es estable hasta la línea de 1147 °C; el máximo deja margen y evita efectos que el modelo no calcula, como el crecimiento de grano. |
+| Tiempo | {T_H_MIN:g}–{T_H_MAX:g} h | **Abajo:** con {T_H_MIN:g} h a {T_MIN:.0f} °C el carbono apenas recorre L = {L_min:.2f} mm. **Arriba:** {T_H_MAX:g} h son más de dos días de horno; a {T_MAX:.0f} °C, L = {L_max:.2f} mm y la pieza tendría que medir al menos 4·L = {4 * L_max:.1f} mm para que el modelo valga. |
+| C₀ (carbono del acero) | {C0_MIN:.2f}–{C0_MAX:.2f} wt % | La cementación se hace en **aceros de bajo carbono**: el núcleo debe quedar con poco carbono para ser tenaz. Con menos de {C0_MIN:.2f} wt % el acero no sería todo austenita a {T_MIN:.0f} °C (para hierro puro, A3 ≈ 912 °C). |
+| Cs (carbono en la superficie) | {CS_MIN:.2f}–{CS_MAX:.2f} wt % | Debe ser mayor que C₀ para que entre carbono; con menos de {CS_MIN:.2f} wt % la superficie casi no se distinguiría del núcleo. El máximo queda debajo de lo que disuelve la austenita a {T_MIN:.0f} °C (≈ {acm_tmin:.2f} wt %, línea Acm aproximada, con {MARGEN_ACM} wt % de margen): así **no se forman carburos** en ningún punto del rango. |
+| Cobj (concentración objetivo) | {COBJ_MIN:.2f}–{COBJ_MAX:.2f} wt % | Es la concentración cuya profundidad quieres conocer. Solo tiene sentido si queda **entre C₀ y Cs**. |
+"""
 
 
 # ---------- Pantalla ----------
 def mostrar():
-    # Si venimos del Módulo 2, los valores del tratamiento elegido llegan en 'precarga'
+    st.header("Simulación")
+    st.write(
+        "Mueve los controles y observa cómo entra el carbono en la pieza. En la gráfica, presiona "
+        "**▶ Ver la difusión** para ver el proceso desde el inicio hasta el tiempo que elegiste."
+    )
+
+    # Si venimos del diseño inverso, los valores del tratamiento elegido llegan en 'precarga'
     precarga = st.session_state.get(ESTADO_PRECARGA, {})
     if precarga:
-        st.success("Cargaste un tratamiento desde el Módulo 2. [Baja al simulador ↓](#simulador) para verlo.")
+        st.info(f"Valores cargados desde el diseño inverso: el objetivo era {precarga['Cobj']:.2f} wt % "
+                f"a {precarga['x_obj_mm']:.2f} [mm]. Puedes moverlos.")
 
-    # Arriba: portada y resumen teórico. Abajo: el simulador.
-    mostrar_portada()
-    mostrar_resumen_teorico()
+    col_controles, col_grafica = st.columns([1, 2.3])
+    with col_controles:
+        st.subheader("Condiciones")
+        T_C = st.slider("Temperatura [°C]", T_MIN, T_MAX, float(precarga.get("T_C", T_DEMO)), 1.0,
+                        help="Más temperatura → D más grande → el carbono entra más rápido.")
+        t_h = st.slider("Tiempo [h]", T_H_MIN, T_H_MAX, float(precarga.get("t_h", T_H_DEMO)), 0.01,
+                        help="Más tiempo → más profundidad, pero crece con la raíz del tiempo.")
+        C0 = st.slider("C₀: carbono inicial del acero [wt %]", C0_MIN, C0_MAX, float(precarga.get("C0", C0_DEMO)),
+                       0.01, help="El carbono que ya tenía el acero en todo su volumen.")
+        Cs = st.slider("Cs: carbono en la superficie [wt %]", CS_MIN, CS_MAX, float(precarga.get("Cs", CS_DEMO)),
+                       0.01, help="Lo fija la atmósfera del horno. Es el máximo que puede tener la pieza.")
+        Cobj = st.slider("Cobj: concentración objetivo [wt %]", COBJ_MIN, COBJ_MAX,
+                         float(precarga.get("Cobj", COBJ_DEMO)), 0.01,
+                         help="¿Hasta qué profundidad llega esta concentración? Debe quedar entre C₀ y Cs.")
 
-    st.header("Simulador (Módulo 1: simulación directa)", anchor="simulador")
-    st.write(
-        "Aquí pruebas la teoría de arriba con números. La app calcula el coeficiente de difusión, "
-        "el perfil de carbono y la profundidad a la que se alcanza la concentración objetivo."
-    )
-    st.markdown(
-        "**Cómo usarlo:** (1) escribe las condiciones del tratamiento en la columna izquierda; "
-        "(2) mira el perfil de carbono y los resultados a la derecha; "
-        "(3) lee la sección **¿Qué está pasando?** debajo de la gráfica: se actualiza con tus valores."
-    )
-    if precarga:
-        st.info(
-            f"Valores cargados desde el Módulo 2: el objetivo era {precarga['Cobj']:.2f} wt % "
-            f"a {precarga['x_obj_mm']:.2f} [mm]. Puedes editarlos."
-        )
-
-    col_parametros, col_resultados = st.columns([1, 2])
-
-    # ----- Columna izquierda: parámetros -----
-    with col_parametros:
-        st.subheader("Parámetros")
-        T_C = st.number_input(
-            "Temperatura de cementación [°C]", min_value=T_MIN, max_value=T_MAX,
-            value=precarga.get("T_C", 927.0), step=5.0, format="%.1f",
-            help="Intervalo de demostración del proyecto: 900–1050 °C.",
-        )
-        t_h = st.number_input(
-            "Tiempo de tratamiento [h]", min_value=0.1, max_value=1000.0,
-            value=precarga.get("t_h", 10.0), step=0.5, format="%.2f",
-        )
-        C0 = st.number_input(
-            "Concentración inicial C₀ [wt %]", min_value=0.0, max_value=SOLUBILIDAD_MAX,
-            value=precarga.get("C0", 0.20), step=0.05, format="%.2f",
-        )
-        Cs = st.number_input(
-            "Concentración superficial Cs [wt %]", min_value=0.0, max_value=SOLUBILIDAD_MAX,
-            value=precarga.get("Cs", 1.00), step=0.05, format="%.2f",
-            help="Depende del potencial de carbono de la atmósfera carburizante.",
-        )
-        Cobj = st.number_input(
-            "Concentración objetivo Cobj [wt %]", min_value=0.0, max_value=SOLUBILIDAD_MAX,
-            value=precarga.get("Cobj", 0.40), step=0.05, format="%.2f",
-        )
-        x_max_mm = st.number_input(
-            "Profundidad máxima a visualizar [mm]", min_value=0.1, max_value=20.0,
-            value=precarga.get("x_max_mm", 2.0), step=0.5, format="%.1f",
-        )
-
-        usar_espesor = st.checkbox("Comprobar el supuesto de sólido semiinfinito (indicar espesor)")
-        espesor_mm = None
-        if usar_espesor:
-            espesor_mm = st.number_input(
-                "Espesor de la pieza [mm]", min_value=0.1, max_value=200.0,
-                value=10.0, step=0.5, format="%.1f",
-                help="Si se cementa por las dos caras, escribe la mitad del espesor.",
-            )
-
-    r = calcular_modulo1(T_C, t_h, C0, Cs, Cobj, x_max_mm, espesor_mm)
-
-    # ----- Columna derecha: resultados -----
-    with col_resultados:
-        st.subheader("Resultados")
-
+    r = calcular_modulo1(T_C, t_h, C0, Cs, Cobj)
+    with col_grafica:
         if r["errores"]:
             for mensaje in r["errores"]:
                 st.error(mensaje)
             return
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("D [m²/s]", f"{r['D']:.3e}",
-                  help="Coeficiente de difusión del carbono en Fe-γ a esa temperatura (Arrhenius).")
-        c2.metric("L = √(Dt) [mm]", f"{r['L']:.3f}",
-                  help="Longitud característica de difusión. En la fórmula de Fick aparece 2·L.")
-        c3.metric("x para Cobj [mm]", f"{r['x_obj']:.3f}" if r["x_obj"] is not None else "—",
-                  help="Profundidad a la que la concentración de carbono llega a Cobj.")
-
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("D [m²/s]", f"{r['D']:.2e}", help="Coeficiente de difusión a esa temperatura (Arrhenius).")
+        m2.metric("L = √(Dt) [mm]", f"{r['L']:.3f}", help="Distancia típica que recorre el carbono.")
+        m3.metric("Profundidad para Cobj [mm]", f"{r['x_obj']:.3f}" if r["x_obj"] is not None else "—")
+        m4.metric("Espesor mínimo de pieza [mm]", f"{r['espesor_minimo']:.2f}",
+                  help="4·L: con menos espesor, el modelo de sólido semiinfinito deja de valer.")
         for aviso in r["avisos"]:
             st.warning(aviso)
+        st.plotly_chart(construir_animacion(T_C, t_h, C0, Cs, Cobj), width="stretch")
 
-        st.plotly_chart(construir_figura(r["x"], r["C"], C0, Cs, Cobj, r["x_obj"]), width="stretch")
-
-        st.caption(
-            "La profundidad calculada es donde la concentración de carbono llega a Cobj. "
-            "No es la profundidad efectiva de endurecimiento: esa depende del temple y de la dureza, "
-            "y esta app no las calcula."
-        )
-
-    # ----- Lo que sucede, paso a paso (se actualiza con los valores de la pantalla) -----
     st.subheader("¿Qué está pasando?")
     st.markdown(explicar_simulacion(T_C, t_h, C0, Cs, Cobj, r))
+    st.caption("La profundidad calculada es donde el carbono llega a Cobj. No es la profundidad efectiva de "
+               "endurecimiento: esa depende del temple y de la dureza, que esta app no calcula.")
 
-    # ----- Explicación y procedencia de los parámetros -----
-    with st.expander("¿Cómo se calculó?"):
+    st.subheader("¿Por qué estos rangos?")
+    st.markdown(tabla_rangos())
+    st.caption("Los rangos los eligió el equipo con el diagrama Fe–Fe₃C de clase y el propio modelo. "
+               "No son estándares industriales.")
+
+    with st.expander("¿Cómo se calculó? (ecuaciones con tus números)"):
         st.latex(r"D = D_0 \exp\!\left(-\frac{Q}{RT}\right)")
         st.latex(r"C(x,t) = C_0 + (C_s - C_0)\,\mathrm{erfc}\!\left(\frac{x}{2\sqrt{Dt}}\right)")
         st.latex(r"x_C = 2\,z\,\sqrt{Dt}, \qquad z = \mathrm{erfc}^{-1}\!\left(\frac{C_{obj}-C_0}{C_s-C_0}\right)")
         texto = (
-            f"- Temperatura absoluta: T = {T_C:.0f} + {CERO_CELSIUS_K} = {T_C + CERO_CELSIUS_K:.2f} [K]\n"
-            f"- Coeficiente de difusión: D = {r['D']:.3e} [m²/s]\n"
-            f"- Longitud característica: L = √(Dt) = {r['L']:.3f} [mm]  (2L = {2 * r['L']:.3f} [mm])\n"
+            f"- T = {T_C:.0f} + {CERO_CELSIUS_K} = {T_C + CERO_CELSIUS_K:.2f} [K]\n"
+            f"- D = {r['D']:.3e} [m²/s]\n"
+            f"- L = √(Dt) = {r['L']:.3f} [mm]\n"
         )
         if r["z"] is not None:
-            texto += f"- z = erfc⁻¹(...) = {r['z']:.4f} (sin unidades), y x = 2·z·L = {r['x_obj']:.3f} [mm]\n"
-        if r["espesor_minimo"] is not None:
-            texto += f"- Espesor mínimo para sólido semiinfinito: 4·L = {r['espesor_minimo']:.2f} [mm]\n"
+            texto += f"- z = {r['z']:.4f} (sin unidades) y x = 2·z·L = {r['x_obj']:.3f} [mm]\n"
         st.markdown(texto)
-
-    with st.expander("Parámetros del modelo y su procedencia"):
-        st.markdown(
-            f"""
-| Parámetro | Valor | Procedencia |
-|---|---|---|
-| D₀ | {D0:.1e} [m²/s] | Tabla de difusión de las diapositivas de clase (C en Fe-γ) |
-| Q | {Q:.0f} [J/mol] | Tabla de difusión de las diapositivas de clase (C en Fe-γ) |
-| R | {R} [J/(mol·K)] | Elegido porque reproduce los datos de referencia (ver Validación) |
-| C₀, Cs, Cobj | los que escribiste | Valores de demostración, no son estándares industriales |
-| Líneas A3 y Acm | aproximadas | Puntos rotulados del diagrama de clase (0.8 wt % a 723 °C y 2.11 wt % a 1147 °C) y el ejercicio de clase (0.42 wt % a 780 °C). Acm es una recta entre dos puntos. Solo sirven para avisar |
-            """
-        )
-        st.caption(
-            "Cs depende del potencial de carbono de la atmósfera; no sale directamente del diagrama Fe-C. "
-            f"El máximo de {SOLUBILIDAD_MAX} wt % en los campos de concentración es la máxima solubilidad "
-            "del carbono en austenita según el diagrama Fe-Fe₃C."
-        )

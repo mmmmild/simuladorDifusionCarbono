@@ -13,43 +13,37 @@ Facultad de Ingeniería · Ingeniería de Materiales
 - Uriostegui Rodriguez Adolfo Saúl
 - Vega Hurtado Mildred Dessire
 
-La app responde una pregunta de diseño:
-
-> ¿Qué combinación de temperatura y tiempo necesito para alcanzar una concentración de carbono
-> determinada a una profundidad específica?
-
 ## ¿Qué hace?
 
-Calcula el perfil de concentración de carbono C(x,t), la profundidad a la que la concentración llega a un
-valor objetivo, el tiempo o la temperatura necesarios, y la comparación de hasta tres tratamientos.
-La profundidad que reporta es la profundidad a una concentración objetivo de carbono.
+Calcula cómo se reparte el carbono dentro de una pieza de acero durante la cementación: el perfil de
+concentración C(x,t), la profundidad a la que se llega a una concentración objetivo, y el tiempo o la
+temperatura necesarios para lograrla. Muestra la difusión con una animación del corte de la pieza.
+
+**No calcula** dureza, temple ni profundidad efectiva de endurecimiento.
 
 ## ¿Para qué sirve?
 
 - **Diseñar un tratamiento de cementación.** Si sabes qué concentración de carbono necesitas y a qué
-  profundidad, la app te da las combinaciones de temperatura y tiempo que lo logran. Así puedes elegir,
-  por ejemplo, una temperatura más alta para acortar el tiempo de horno.
-- **Entender el efecto de cada variable.** Muestra cómo cambia el perfil de carbono al mover la temperatura,
-  el tiempo o las concentraciones. Por ejemplo, duplicar el tiempo no duplica la profundidad: la aumenta
-  √2 veces (unas 1.41 veces).
-- **Comparar opciones antes de probarlas.** Pone hasta tres tratamientos lado a lado para ver cuál llega
-  más profundo y cuánto tiempo necesitaría cada uno para igualar a otro.
+  profundidad, la app te da las combinaciones de temperatura y tiempo que lo logran.
+- **Entender el efecto de cada variable.** Muestra cómo cambia el carbono dentro de la pieza al mover la
+  temperatura, el tiempo o las concentraciones. Por ejemplo, duplicar el tiempo no duplica la profundidad:
+  la aumenta √2 veces (unas 1.41 veces).
+- **Elegir entre opciones.** Compara tres tratamientos y dice cuál llega a la profundidad meta con menos
+  tiempo de horno.
 - **Aprender difusión con números.** Conecta la teoría (leyes de Fick y Arrhenius) con resultados que se
   pueden comprobar a mano.
 
-Es una herramienta de cálculo y de aprendizaje. Sirve para estimar y comparar condiciones de proceso: no 
-calcula dureza, temple ni profundidad efectiva de endurecimiento, y
-supone condiciones ideales (ver Módulo 5).
+Es una herramienta de cálculo y de aprendizaje: sirve para estimar y comparar, pero **no sustituye los ensayos**.
 
-## Módulos
+## Secciones de la app
 
-| # | Módulo | Qué permite |
+| # | Sección | Qué tiene |
 |---|---|---|
-| 1 | Inicio y simulación directa | Arriba, portada y resumen teórico; debajo, el simulador: das T y t y obtienes el perfil de carbono, D, L = √(Dt) y la profundidad para Cobj, con una explicación paso a paso que se actualiza con tus valores |
-| 2 | Diseño inverso (principal) | Das profundidad y Cobj, obtienes todas las parejas (T, t) con banda de tolerancia, un mapa y la opción de comprobarlas en el Módulo 1 |
-| 3 | Comparación de tratamientos | Hasta 3 tratamientos lado a lado, con tabla y explicación |
-| 4 | Fundamento teórico | Difusión, leyes de Fick, Arrhenius, por qué austenita |
-| 5 | Validación y limitaciones | Pruebas numéricas, cálculo manual, procedencia de los datos, supuestos y límites |
+| 1 | Fundamento teórico | Portada, qué pasa en realidad durante la cementación (con cortes de la pieza), difusión, leyes de Fick, Arrhenius y por qué austenita |
+| 2 | Simulación | Controles de temperatura, tiempo y concentraciones; animación de la difusión en un corte de la pieza; explicación paso a paso y el porqué de cada rango |
+| 3 | Diseño inverso | Tres controles (profundidad, concentración objetivo y tolerancia); curva temperatura–tiempo con una curva de referencia para ver el efecto de cada control |
+| 4 | Comparación de tratamientos | Tres tratamientos contra una profundidad meta; dice cuál conviene y por qué |
+| 5 | Importancia en la industria | Dónde se usa la cementación, qué se gana, qué pasa si sale mal y cómo se conecta con la app |
 
 ## Modelo
 
@@ -60,29 +54,11 @@ C(x,t) = C0 + (Cs − C0) · erfc[ x / (2·√(D·t)) ]
 D = D0 · exp(−Q / (R·T))
 ```
 
-Diseño inverso: con z = erfc⁻¹[(Cobj − C0)/(Cs − C0)], la profundidad es x = 2·z·√(D·t), el tiempo es
-t = [x/(2z)]²/D y la temperatura es T = −Q / [R·ln(D_req/D0)], con D_req = [x/(2z)]²/t. Para x y Cobj fijos,
-D·t = K es constante.
-
-### Parámetros y de dónde salen
-
-| Tipo | Dato | Valor |
-|---|---|---|
-| Diapositivas de clase | D₀ (C en Fe-γ) | 2.3 × 10⁻⁵ m²/s |
-| Diapositivas de clase | Q (C en Fe-γ) | 148 000 J/mol |
-| Diagrama Fe–Fe₃C de clase | Eutectoide / máxima solubilidad del C en austenita | 0.8 wt % a 723 °C / 2.11 wt % a 1147 °C |
-| Ejercicio de clase | Austenita a 780 °C | 0.42 wt % C |
-| Elegido por el equipo | R | 8.3145 J/(mol·K) |
-| Elegido por el equipo | Intervalo de temperatura | 900–1050 °C |
-| Elegido por el equipo | Sólido semiinfinito | espesor ≥ 4·L |
-| Valores de demostración | C₀ / Cs / Cobj | 0.20 / 1.00 / 0.40 wt % (no son estándares industriales) |
-
-Las líneas A3 y Acm del chequeo de fases son **aproximaciones** (Acm es una recta entre dos puntos del diagrama de
-clase). Solo generan avisos y nunca bloquean un cálculo.
+Con z = erfc⁻¹[(Cobj − C0)/(Cs − C0)]: profundidad x = 2·z·√(D·t), tiempo t = [x/(2z)]²/D y temperatura
+T = −Q / [R·ln(D_req/D0)]. D₀ = 2.3 × 10⁻⁵ m²/s y Q = 148 000 J/mol (carbono en Fe-γ, diapositivas de clase);
+R = 8.3145 J/(mol·K).
 
 ## Cómo ejecutarlo
-
-Requiere Python 3.10 o superior.
 
 Desde la carpeta del repositorio (la que contiene `app.py`):
 
@@ -91,31 +67,14 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-Streamlit abre la app en `http://localhost:8501`. En GitHub Codespaces, el puerto 8501 se abre desde la pestaña
-**Ports** (o con la ventana emergente que aparece al iniciar). Si aparece `streamlit: command not found`, se usa `python -m streamlit` como arriba.
-
 ## Validación
 
 ```bash
 python validacion.py
 ```
 
-Compara el modelo contra casos de referencia y contra propiedades que siempre deben cumplirse. Termina con
-`78 de 78 pruebas pasaron.` y código de salida 0 si todo está bien. La misma tabla se ve en el Módulo 5.
-
-| Caso | Qué comprueba |
-|---|---|
-| A, B, C, D | D, perfil, diseño inverso y efecto de Cobj contra los valores de referencia del proyecto |
-| E | Problema 5.13 de Callister: el libro da 1.13 × 10⁵ s y el modelo da una diferencia de −0.8 %. Con R = 8.31 (la que usa el libro) la diferencia baja a −0.1 % |
-| Consistencia | Ida y vuelta entre funciones, condiciones de frontera, D·t constante, L = √(Dt) |
-| Fases | Avisos de A3 y Acm |
-| Errores | El modelo avisa cuando los datos no tienen sentido físico |
-
-## Supuestos principales
-
-Sólido semiinfinito y unidimensional, D constante (independiente de la concentración), temperatura constante,
-Cs constante desde el inicio, una sola fase (austenita), sin carburos, sin aleantes, wt % tratado como
-concentración. La lista completa y los fenómenos que no se consideran están en el Módulo 5 de la app.
+Compara el modelo contra casos de referencia, un problema de libro (Callister 5.13) y propiedades que siempre
+deben cumplirse. Debe terminar con `93 de 93 pruebas pasaron.`
 
 ## Estructura del repositorio
 
@@ -124,22 +83,21 @@ concentración. La lista completa y los fenómenos que no se consideran están e
 ├── app.py                    # navegación (barra lateral); no tiene cálculos
 ├── modelo.py                 # física: Fick, Arrhenius, diseño inverso, chequeo de fases
 ├── validacion.py             # pruebas numéricas (python validacion.py)
-├── estilo.py                 # colores, límites y nombres de páginas compartidos
+├── estilo.py                 # colores, rangos de los controles y nombres de las secciones
 ├── modulos/
-│   ├── inicio.py             # portada y resumen teórico (arriba de la página 1)
-│   ├── m1_simulacion.py      # Módulo 1 (el simulador, debajo del resumen teórico)
-│   ├── m2_inverso.py         # Módulo 2
-│   ├── m3_comparacion.py     # Módulo 3
-│   ├── m4_teoria.py          # Módulo 4
-│   └── m5_validacion.py      # Módulo 5
+│   ├── inicio.py             # portada
+│   ├── visual.py             # gráficas del corte de la pieza (animación)
+│   ├── m4_teoria.py          # 1. Fundamento teórico
+│   ├── m1_simulacion.py      # 2. Simulación
+│   ├── m2_inverso.py         # 3. Diseño inverso
+│   ├── m3_comparacion.py     # 4. Comparación de tratamientos
+│   └── industria.py          # 5. Importancia en la industria
 ├── docs/
 │   └── guion_demostracion.md # guion y preguntas de defensa
 ├── .streamlit/config.toml    # tema claro (fondo blanco)
 ├── requirements.txt
 └── README.md
 ```
-
-El modelo está separado de la interfaz: `modelo.py` no importa Streamlit, así que se puede probar y usar sin la app.
 
 ## Tecnologías
 
