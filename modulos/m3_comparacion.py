@@ -52,33 +52,82 @@ def calcular_modulo3(tratamientos, C0, Cs, Cobj, x_meta_mm):
     return r
 
 
+def _mismas(f, g):
+    """True si dos tratamientos tienen la misma temperatura y el mismo tiempo."""
+    return abs(f["T_C"] - g["T_C"]) < 1e-9 and abs(f["t_h"] - g["t_h"]) < 1e-9
+
+
+def _nombres(lista):
+    """'A', 'A y B' o 'A, B y C'."""
+    nombres = [f["nombre"] for f in lista]
+    return nombres[0] if len(nombres) == 1 else ", ".join(nombres[:-1]) + " y " + nombres[-1]
+
+
+def _sugerencia_ahorro(filas, referencia, x_meta_mm):
+    """Texto de cómo ahorrar tiempo respecto a 'referencia' (o vacío si no se puede ahorrar)."""
+    rapido = min(filas, key=lambda f: (f["t_meta_h"], f["T_C"]))
+    if rapido["t_meta_h"] >= referencia["t_h"] - 0.01:
+        return ""
+    if rapido["T_C"] > referencia["T_C"] + 1e-9:
+        return (f"\n\n**Para ahorrar más tiempo:** a {rapido['T_C']:g} °C (tratamiento {rapido['nombre']}) el carbono "
+                f"difunde más rápido y bastarían **{rapido['t_meta_h']:.2f} h** para llegar justo a la meta.")
+    exceso = referencia["profundidad_mm"] - x_meta_mm
+    return (f"\n\n**Para ahorrar tiempo:** a {referencia['T_C']:g} °C bastarían **{referencia['t_meta_h']:.2f} h** "
+            f"para llegar justo a la meta; con {referencia['t_h']:g} h te pasas {exceso:.3f} mm.")
+
+
 def recomendar(r, x_meta_mm):
-    """Texto con la recomendación y el porqué."""
+    """Texto con la recomendación y el porqué. Toma en cuenta tratamientos repetidos y empates."""
     filas, mejor = r["filas"], r["mejor"]
-    rapido = min(filas, key=lambda f: f["t_meta_h"])  # el que necesitaría menos tiempo para la meta
+
+    # Caso 1: los tres son iguales -> no hay nada que comparar
+    if all(_mismas(f, filas[0]) for f in filas):
+        f = filas[0]
+        llegan = "llegan" if f["cumple"] else "no llegan"
+        texto = (f"**Los tres tratamientos son iguales** ({f['T_C']:g} °C, {f['t_h']:g} h), así que dan el mismo "
+                 f"resultado: {f['profundidad_mm']:.3f} mm, y {llegan} a la meta de {x_meta_mm:.2f} mm. "
+                 "Cambia la temperatura o el tiempo de alguno para compararlos.")
+        if f["cumple"]:
+            texto += _sugerencia_ahorro([f], f, x_meta_mm)
+        else:
+            texto += f"\n\nPara llegar a la meta necesitarían **{f['t_meta_h']:.2f} h** a {f['T_C']:g} °C."
+        return texto
+
+    # Caso 2: ninguno llega
     if mejor is None:
-        cercano = max(filas, key=lambda f: f["profundidad_mm"])
-        texto = (
-            f"**Ninguno llega a la meta de {x_meta_mm:.2f} mm.** El que más se acerca es **{cercano['nombre']}** "
-            f"({cercano['profundidad_mm']:.3f} mm). Para llegar, {cercano['nombre']} necesitaría "
-            f"{cercano['t_meta_h']:.2f} h a {cercano['T_C']:g} °C."
+        cercano = max(filas, key=lambda f: (f["profundidad_mm"], -f["t_h"]))
+        iguales = [f for f in filas if _mismas(f, cercano)]
+        rapido = min(filas, key=lambda f: (f["t_meta_h"], f["T_C"]))
+        return (
+            f"**Ninguno llega a la meta de {x_meta_mm:.2f} mm.** El que más se acerca es **{_nombres(iguales)}** "
+            f"({cercano['T_C']:g} °C, {cercano['t_h']:g} h: {cercano['profundidad_mm']:.3f} mm)."
+            f"\n\n**Para llegar:** el camino más corto es a {rapido['T_C']:g} °C (tratamiento {rapido['nombre']}), "
+            f"con **{rapido['t_meta_h']:.2f} h**."
         )
+
+    # Caso 3: hay un mejor (puede tener tratamientos iguales a él)
+    iguales = [f for f in filas if _mismas(f, mejor)]
+    exceso = mejor["profundidad_mm"] - x_meta_mm
+    if len(iguales) > 1:
+        texto = (f"**Los mejores son {_nombres(iguales)}** (son iguales: {mejor['T_C']:g} °C, {mejor['t_h']:g} h): "
+                 f"llegan a la meta con el **menor tiempo de horno**.")
     else:
-        exceso = mejor["profundidad_mm"] - x_meta_mm
-        texto = (
-            f"**El mejor es {mejor['nombre']}** ({mejor['T_C']:g} °C, {mejor['t_h']:g} h): llega a la meta con el "
-            f"**menor tiempo de horno**. Alcanza {mejor['profundidad_mm']:.3f} mm, {exceso:.3f} mm más de lo pedido."
-        )
-        otros = [f for f in filas if f is not mejor and f["cumple"]]
-        if otros:
-            verbo = "tarda" if len(otros) == 1 else "tardan"
-            texto += (" También " + ("cumple " if len(otros) == 1 else "cumplen ")
-                      + ", ".join(f"{f['nombre']} ({f['t_h']:g} h)" for f in otros) + f", pero {verbo} más.")
-    texto += (
-        f"\n\n**Para ahorrar más tiempo:** a su temperatura, **{rapido['nombre']}** llegaría justo a la meta con solo "
-        f"**{rapido['t_meta_h']:.2f} h**, porque a {rapido['T_C']:g} °C el carbono difunde más rápido."
-    )
-    return texto
+        texto = (f"**El mejor es {mejor['nombre']}** ({mejor['T_C']:g} °C, {mejor['t_h']:g} h): llega a la meta con "
+                 f"el **menor tiempo de horno**.")
+    texto += (f" {'Alcanzan' if len(iguales) > 1 else 'Alcanza'} {mejor['profundidad_mm']:.3f} mm, "
+              f"{exceso:.3f} mm más de lo pedido.")
+
+    otros = [f for f in filas if f["cumple"] and not _mismas(f, mejor)]
+    mas_tiempo = [f for f in otros if f["t_h"] > mejor["t_h"] + 1e-9]
+    mismo_tiempo = [f for f in otros if abs(f["t_h"] - mejor["t_h"]) <= 1e-9]
+    if mas_tiempo:
+        verbo = "tarda" if len(mas_tiempo) == 1 else "tardan"
+        texto += (f" También {'cumple' if len(mas_tiempo) == 1 else 'cumplen'} "
+                  + ", ".join(f"{f['nombre']} ({f['t_h']:g} h)" for f in mas_tiempo) + f", pero {verbo} más.")
+    if mismo_tiempo:
+        texto += (f" {_nombres(mismo_tiempo)} {'tarda' if len(mismo_tiempo) == 1 else 'tardan'} lo mismo, pero con "
+                  "más temperatura, que gasta más energía y hace crecer el grano (eso no lo calcula el modelo).")
+    return texto + _sugerencia_ahorro(filas, mejor, x_meta_mm)
 
 
 def construir_figura_barras(r, x_meta_mm):
