@@ -1,5 +1,4 @@
 # Simulador Difusión Carbono. 
-# Esto se muestra arriba de la primera página; el simulador va justo debajo (ver m1_simulacion.py).
 # Los números salen de modelo.py.
 
 import streamlit as st
@@ -105,8 +104,7 @@ def mostrar_resumen_teorico():
         st.markdown(
             "**6. ¿Por qué austenita?** A la temperatura de cementación el acero está en fase austenítica (Fe-γ, FCC), "
             "que es la fase estable y la que disuelve mucho carbono (hasta 2.11 wt %, contra 0.02 wt % de la ferrita). "
-            "Además, al templar se transforma en martensita. **No** es porque el carbono difunda más rápido en FCC: "
-            "en ferrita (BCC) difunde más rápido."
+            "Además, al templar se transforma en martensita."
         )
     with der:
         st.info("Los resultados son soluciones matemáticas con supuestos. No son propiedades de un acero industrial.")
@@ -115,6 +113,6 @@ def mostrar_resumen_teorico():
 
 
 def mostrar():
-    """Portada y resumen juntos (por si se quiere mostrar solos)."""
+    """Portada y resumen juntos."""
     mostrar_portada()
     mostrar_resumen_teorico()
