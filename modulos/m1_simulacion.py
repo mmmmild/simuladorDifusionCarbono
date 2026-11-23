@@ -1,6 +1,4 @@
-# Simulador Difusión Carbono. Módulo 1: simulación directa (persona A).
-# Aquí va la pantalla y la lógica que la alimenta. Los cálculos de física salen de modelo.py.
-# app.py solo llama a mostrar().
+# Simulador Difusión Carbono. Módulo 1: simulación directa.
 
 import numpy as np
 import plotly.graph_objects as go
